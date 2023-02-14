@@ -10,6 +10,9 @@ import java.io.Serializable;
  */
 public class Predicate implements Serializable {
 
+    public int fieldno;
+    public Op op;
+    public Field operand;
     private static final long serialVersionUID = 1L;
 
     /**
@@ -56,31 +59,30 @@ public class Predicate implements Serializable {
      * @param operand field value to compare passed in tuples to
      */
     public Predicate(int field, Op op, Field operand) {
-        // TODO: some code goes here
+        this.fieldno = field;
+        this.op = op;
+        this.operand = operand;
     }
 
     /**
      * @return the field number
      */
     public int getField() {
-        // TODO: some code goes here
-        return -1;
+        return this.fieldno;
     }
 
     /**
      * @return the operator
      */
     public Op getOp() {
-        // TODO: some code goes here
-        return null;
+        return this.op;
     }
 
     /**
      * @return the operand
      */
     public Field getOperand() {
-        // TODO: some code goes here
-        return null;
+        return this.operand;
     }
 
     /**
@@ -93,8 +95,7 @@ public class Predicate implements Serializable {
      * @return true if the comparison is true, false otherwise.
      */
     public boolean filter(Tuple t) {
-        // TODO: some code goes here
-        return false;
+        return t.getField(fieldno).compare(this.op, this.operand);
     }
 
     /**
@@ -102,7 +103,8 @@ public class Predicate implements Serializable {
      * operand_string"
      */
     public String toString() {
-        // TODO: some code goes here
-        return "";
+        return "\nf = " + this.fieldno + 
+        "\nop = " + this.op.toString() +
+        "\noperand = " + this.operand.toString();
     }
 }
