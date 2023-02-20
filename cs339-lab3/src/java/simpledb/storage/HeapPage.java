@@ -259,14 +259,14 @@ public class HeapPage implements Page {
      */
     public void deleteTuple(Tuple t) throws DbException {
         // Check if the tuple is on the page
-        int tupleIndex = -1;
-        for (int i = 0; i < tuples.length; i++) {
-            if (tuples[i].equals(t)) {
-                tupleIndex = i;
-                break;
-            }
-        }
-        if (tupleIndex == -1) {
+        int tupleIndex = t.getRecordId().getTupleNumber();
+        // for (int i = 0; i < tuples.length; i++) {
+        //     if (tuples[i].equals(t)) {
+        //         tupleIndex = i;
+        //         break;
+        //     }
+        // }
+        if (!t.getRecordId().getPageId().equals(pid)) {
             throw new DbException("Tuple is not on this page");
         }
         

@@ -163,7 +163,17 @@ public class BufferPool {
      */
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
-        // TODO: some code goes here
+        DbFile file = Database.getCatalog().getDatabaseFile(tableId);
+
+        List<Page> dirty = file.insertTuple(tid, t);
+
+        for (Page p : dirty) {
+            p.markDirty(true, tid);
+            //Page cur_page = pages.get(p.getId());
+
+            pages.put(p.getId(), p);
+        }
+
     }
 
     /**
@@ -181,7 +191,23 @@ public class BufferPool {
      */
     public void deleteTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
-        // TODO: some code goes here
+
+        int table = t.getRecordId().getPageId().getTableId();
+        DbFile file = Database.getCatalog().getDatabaseFile(table);
+
+        List<Page> dirty = file.deleteTuple(tid, t);
+
+        for (Page p : dirty) {
+            p.markDirty(true, tid);
+            Page cur_page = pages.get(p.getId());
+
+            if (cur_page == null) {
+                cur_page = p;
+            } else {
+                pages.put(p.getId(), p);
+            }
+        }
+        
     }
 
     /**
