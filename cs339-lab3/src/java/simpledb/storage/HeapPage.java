@@ -27,6 +27,8 @@ public class HeapPage implements Page {
 
     byte[] oldData;
     private final Byte oldDataLock = (byte) 0;
+    private boolean dirty;
+    private TransactionId dirtyTid;
 
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
@@ -256,7 +258,26 @@ public class HeapPage implements Page {
      *                     already empty.
      */
     public void deleteTuple(Tuple t) throws DbException {
-        // TODO: some code goes here
+        // Check if the tuple is on the page
+        int tupleIndex = -1;
+        for (int i = 0; i < tuples.length; i++) {
+            if (tuples[i].equals(t)) {
+                tupleIndex = i;
+                break;
+            }
+        }
+        if (tupleIndex == -1) {
+            throw new DbException("Tuple is not on this page");
+        }
+        
+        // Check if the tuple slot is already empty
+        if (!isSlotUsed(tupleIndex)) {
+            throw new DbException("Tuple slot is already empty");
+        }
+        
+        // Delete the tuple and update the header bit
+        tuples[tupleIndex] = null;
+        markSlotUsed(tupleIndex, false);
     }
 
     /**
@@ -268,7 +289,27 @@ public class HeapPage implements Page {
      *                     is mismatch.
      */
     public void insertTuple(Tuple t) throws DbException {
-        // TODO: some code goes here
+        // Check if there is an empty slot
+        int emptySlotIndex = -1;
+        for (int i = 0; i < tuples.length; i++) {
+            if (!isSlotUsed(i)) {
+                emptySlotIndex = i;
+                break;
+            }
+        }
+        if (emptySlotIndex == -1) {
+            throw new DbException("Page is full");
+        }
+        
+        // Check if the tuple description is a mismatch
+        if (!t.getTupleDesc().equals(td)) {
+            throw new DbException("Tuple description is a mismatch");
+        }
+        
+        // Insert the tuple and update the header bit
+        tuples[emptySlotIndex] = t;
+        markSlotUsed(emptySlotIndex, true);
+        t.setRecordId(new RecordId(pid, emptySlotIndex));
     }
 
     /**
@@ -276,15 +317,15 @@ public class HeapPage implements Page {
      * that did the dirtying
      */
     public void markDirty(boolean dirty, TransactionId tid) {
-        // TODO: some code goes here
+        this.dirty = dirty;
+        this.dirtyTid = dirty ? tid : null;
     }
 
     /**
      * Returns the tid of the transaction that last dirtied this page, or null if the page is not dirty
      */
     public TransactionId isDirty() {
-        // TODO: some code goes here
-        return null;      
+        return dirtyTid;      
     }
 
     /**
@@ -311,7 +352,7 @@ public class HeapPage implements Page {
      * Abstraction to fill or clear a slot on this page.
      */
     private void markSlotUsed(int i, boolean value) {
-        // TODO: some code goes here
+        header[i / 8] = (byte) (value ? header[i / 8] | (1 << (i % 8)) : header[i / 8] & ~(1 << (i % 8)));
     }
 
     /**
