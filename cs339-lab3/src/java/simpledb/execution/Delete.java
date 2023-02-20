@@ -19,6 +19,10 @@ import java.io.IOException;
 public class Delete extends Operator {
 
     private static final long serialVersionUID = 1L;
+    private TransactionId t;
+    private OpIterator child;
+    private TupleDesc deleteTd;
+    private boolean done;
 
     /**
      * Constructor specifying the transaction that this delete belongs to as
@@ -28,25 +32,30 @@ public class Delete extends Operator {
      * @param child The child operator from which to read tuples for deletion
      */
     public Delete(TransactionId t, OpIterator child) {
-        // TODO: some code goes here
-    }
+        this.t = t;
+        this.child = child;
+        this.deleteTd = new TupleDesc(new Type[]{Type.INT_TYPE});
+      }
 
     public TupleDesc getTupleDesc() {
-        // TODO: some code goes here
-        return null;
+        return deleteTd;
     }
 
     public void open() throws DbException, TransactionAbortedException {
-        // TODO: some code goes here
-    }
+        super.open();
+        child.open();
+        done = false;
+      }
 
     public void close() {
-        // TODO: some code goes here
-    }
+        child.close();
+        super.close();
+      }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // TODO: some code goes here
-    }
+        close();
+        open();
+      }
 
     /**
      * Deletes tuples as they are read from the child operator. Deletes are
@@ -58,19 +67,33 @@ public class Delete extends Operator {
      * @see BufferPool#deleteTuple
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // TODO: some code goes here
-        return null;
-    }
+        if (!done) {
+          int cnt = 0;
+          try {
+            while (child.hasNext()) {
+              Database.getBufferPool().deleteTuple(t, child.next());
+              ++cnt;
+            }
+          } catch (DbException | IOException e) {
+            e.printStackTrace();
+          }
+          Tuple res = new Tuple(deleteTd);
+          res.setField(0, new IntField(cnt));
+          done = true;
+          return res;
+        } else {
+          return null;
+        }
+      }
 
     @Override
     public OpIterator[] getChildren() {
-        // TODO: some code goes here
-        return null;
+        return new OpIterator[]{child};
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
-        // TODO: some code goes here
+        child = children[0];
     }
 
 }
