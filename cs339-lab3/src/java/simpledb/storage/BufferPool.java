@@ -41,6 +41,10 @@ public class BufferPool {
     final int numPages;   // number of pages -- currently, not enforced
     final ConcurrentMap<PageId, Page> pages; // hash table storing current pages in memory
 
+    // vars for implementing LRU
+    private long time;
+    final ConcurrentMap<PageId, Long> accessed;
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -49,6 +53,8 @@ public class BufferPool {
     public BufferPool(int numPages) {
         this.numPages = numPages;
         this.pages = new ConcurrentHashMap<>();
+        this.accessed = new ConcurrentHashMap<>();
+        this.time = 0;
     }
 
     public static int getPageSize() {
@@ -86,6 +92,7 @@ public class BufferPool {
         // XXX TODO(ghuo): do we really know enough to implement NO STEAL here?
         //     won't we still evict pages?
         Page p;
+        time += 1;
         synchronized (this) {
             p = pages.get(pid);
             if (p == null) {
@@ -96,6 +103,7 @@ public class BufferPool {
                 p = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
                 pages.put(pid, p);
             }
+            accessed.put(pid, time);
         }
 
         return p;
@@ -172,6 +180,7 @@ public class BufferPool {
             //Page cur_page = pages.get(p.getId());
 
             pages.put(p.getId(), p);
+            accessed.put(p.getId(), time += 1);
         }
 
     }
@@ -216,7 +225,10 @@ public class BufferPool {
      * break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        // TODO: some code goes here
+        for (Map.Entry<PageId, Page> entry: pages.entrySet()) {
+            PageId pid = (PageId) entry.getKey();
+            flushPage(pid);
+         }
 
     }
 
@@ -230,7 +242,7 @@ public class BufferPool {
      * are removed from the cache so they can be reused safely
      */
     public synchronized void removePage(PageId pid) {
-        // TODO: some code goes here
+        pages.remove(pid);
     }
 
     /**
@@ -239,23 +251,60 @@ public class BufferPool {
      * @param pid an ID indicating the page to flush
      */
     private synchronized void flushPage(PageId pid) throws IOException {
-        // TODO: some code goes here
+        Page p = pages.get(pid);
+
+        if (p != null && p.isDirty() != null) {
+            DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            file.writePage(p);
+            p.markDirty(false, null);
+        }
     }
 
     /**
      * Write all pages of the specified transaction to disk.
      */
     public synchronized void flushPages(TransactionId tid) throws IOException {
-        // TODO: some code goes here
-        // not necessary for lab1|lab2
+        for (Map.Entry<PageId, Page> entry: pages.entrySet()) {
+            PageId pid = (PageId) entry.getKey();
+            Page p = (Page) entry.getValue();
+            if (p.isDirty() == tid){
+                flushPage(pid);
+            }
+        
+         }
     }
 
     /**
      * Discards a page from the buffer pool.
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
+
+    // USING LRU
     private synchronized void evictPage() throws DbException {
-        // TODO: some code goes here
+        long min = Long.MAX_VALUE;
+        PageId evict = null;
+        for (Map.Entry<PageId, Long> e : accessed.entrySet()) {
+            long access_time = e.getValue();
+            PageId pid = e.getKey();
+
+            if (access_time <= min) {
+                min = access_time;
+                evict = pid;
+            }
+        }
+
+        Page evict_page = pages.get(evict);
+        if (evict_page.isDirty() != null) {
+            try {
+                flushPage(evict);
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        }
+
+        removePage(evict);
+        accessed.remove(evict);
+        
     }
 
 }
