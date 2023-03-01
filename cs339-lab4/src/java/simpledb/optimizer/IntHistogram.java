@@ -7,6 +7,14 @@ import simpledb.execution.Predicate;
  */
 public class IntHistogram {
 
+
+    private int numb; // number of buckets
+    private int min;
+    private int max;
+    private int ntups;
+    private int[] height;
+    private int[] left;
+    private int[] right;
     /**
      * Create a new IntHistogram.
      * <p>
@@ -24,7 +32,47 @@ public class IntHistogram {
      * @param max     The maximum integer value that will ever be passed to this class for histogramming
      */
     public IntHistogram(int buckets, int min, int max) {
-        // TODO: some code goes here
+        this.numb = buckets;
+        this.min = min;
+        this.max = max;
+        this.height = new int[numb];
+        this.left = new int[numb];
+        this.right = new int[numb];
+
+        int width = (this.max - this.min + 1) / this.numb;
+
+        for (int i = 0; i < this.numb; i++) {
+            this.left[i] = (i * width) + this.min; // finding the lower bound of bucket i
+            if (i > 0) {
+                this.right[i - 1] = this.left[i] - 1;
+            }
+        }
+        this.right[numb - 1] = max;
+    }
+
+    public int findBucket(int v) {
+        if (v < min) {
+            return -1;
+        } else if (v > max) {
+            return numb;
+        }
+        int low = 0;
+        int high = numb - 1;
+        int mid = 0;
+
+        while (low <= high) {
+            mid = (low + high) / 2;
+
+            if (v >= left[mid] && v <= right[mid]){
+                return mid;
+            } else if (v < left[mid]) {
+                high = mid - 1;
+            } else if (v > right[mid]) {
+                low = mid + 1;
+            }
+        }
+        return 0;
+
     }
 
     /**
@@ -33,7 +81,9 @@ public class IntHistogram {
      * @param v Value to add to the histogram
      */
     public void addValue(int v) {
-        // TODO: some code goes here
+        int bucket = findBucket(v);
+        height[bucket] += 1;
+        ntups += 1;
     }
 
     /**
@@ -48,7 +98,42 @@ public class IntHistogram {
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
 
-        // TODO: some code goes here
+        int bucket = findBucket(v);
+
+        // keep track of elements that are either greater, less than, or equal to v
+        // based on the operator
+        double less = 0;
+        double eq = 0;
+        double greater = 0;
+        for (int i = 0; i < numb; i++) {
+            if (i < bucket) {
+                // add the height of bucket i to less tracker
+                less += ((double) height[i]) / ntups;
+            } else if (i > bucket) {
+                greater += ((double) height[i]) / ntups;
+            } else {
+                int width = right[bucket] - left[bucket] + 1;
+                eq += (((double) height[bucket]) / width) / ntups;
+                less += (height[bucket] / ntups) * ((v - left[i]) / width);
+                greater += (height[bucket] / ntups) * ((right[i] - v) / width);
+            }
+        }
+
+        if (op == Predicate.Op.EQUALS) {
+            return eq;
+        } else if (op == Predicate.Op.LESS_THAN) {
+            return less;
+        } else if (op == Predicate.Op.LESS_THAN_OR_EQ) {
+            return less + eq;
+        } else if (op == Predicate.Op.GREATER_THAN) {
+            return greater;
+        } else if (op == Predicate.Op.GREATER_THAN_OR_EQ) {
+            return greater + eq;
+        } else if (op == Predicate.Op.NOT_EQUALS) {
+            return 1 - eq;
+        } else if (op == Predicate.Op.LIKE) {
+            return eq;
+        } 
         return -1.0;
     }
 
@@ -68,7 +153,10 @@ public class IntHistogram {
      * @return A string describing this histogram, for debugging purposes
      */
     public String toString() {
-        // TODO: some code goes here
-        return null;
+        String res = "";
+        for (int i = 0; i < numb; i++) {
+            res += left[i] + ", " + right[i] + "; " + height[i] + "\n";
+        }
+        return res;
     }
 }
