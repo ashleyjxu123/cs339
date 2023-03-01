@@ -81,9 +81,11 @@ public class IntHistogram {
      * @param v Value to add to the histogram
      */
     public void addValue(int v) {
-        int bucket = findBucket(v);
-        height[bucket] += 1;
-        ntups += 1;
+        if (v >= this.min && v <= this.max) {
+            int bucket = findBucket(v);
+            this.height[bucket] += 1;
+            this.ntups += 1;
+        }
     }
 
     /**
@@ -112,10 +114,10 @@ public class IntHistogram {
             } else if (i > bucket) {
                 greater += ((double) height[i]) / ntups;
             } else {
-                int width = right[bucket] - left[bucket] + 1;
+                double width = (right[bucket] - left[bucket]) + 1;
                 eq += (((double) height[bucket]) / width) / ntups;
-                less += (height[bucket] / ntups) * ((v - left[i]) / width);
-                greater += (height[bucket] / ntups) * ((right[i] - v) / width);
+                less += (height[bucket]/ntups) * ((double) (v - left[i]) / width);
+                greater += (height[bucket]/ntups) *((double) (right[i] - v) / width);
             }
         }
 
